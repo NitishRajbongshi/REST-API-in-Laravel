@@ -8,6 +8,8 @@ use App\Models\Product;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
 use Exception;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
@@ -36,13 +38,19 @@ class ProductController extends Controller
     /** * Store a newly created resource in storage. */
     public function store(Request $request)
     {
+        Log::error($request->all());
+        Log::error('headers: ' . json_encode($request->headers->all()));
+        Log::error('raw body: ' . $request->getContent());
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'slug' => 'required|string|unique:products,slug',
+                'slug' => 'nullable|string',
                 'price' => 'required|numeric|min:0',
                 'description' => 'nullable|string',
             ]);
+            if (empty($validated['slug'])) {
+                $validated['slug'] = Str::slug($validated['name']);
+            }
             $product = Product::create($validated);
             return response()->json([
                 'status' => true,
@@ -50,6 +58,7 @@ class ProductController extends Controller
                 'data' => $product
             ], 201);
         } catch (ValidationException $e) {
+            Log::error('Validation error while creating product: ' . $e->getMessage());
             return response()->json([
                 'status' => false,
                 'message' => 'Validation failed.',
